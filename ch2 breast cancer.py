@@ -305,6 +305,7 @@ plt.legend(['Class 0', 'Class 1', 'Class 2', 'Line class 0', 'Line class 1','Lin
 mglearn.plots.plot_2d_classification(linear_svm, X, fill=True, alpha=.7)
 mglearn.discrete_scatter(X[:, 0], X[:, 1], y)
 line = np.linspace(-15, 15)
+
 for coef, intercept, color in zip(linear_svm.coef_, linear_svm.intercept_,
                                   ['b', 'r', 'g']):
     plt.plot(line, -(line * coef[0] + intercept) / coef[1], c=color)
@@ -318,5 +319,221 @@ logreg = LogisticRegression().fit(X_train, y_train)
 logreg = LogisticRegression()
 y_pred = logreg.fit(X_train, y_train).predict(X_test)
 y_pred = LogisticRegression().fit(X_train, y_train).predict(X_test)
+
+X = np.array([[0, 1, 0, 1],
+              [1, 0, 1, 1],
+              [0, 0, 0, 1],
+              [1, 0, 1, 0]])
+y = np.array([0, 1, 0, 1])
+
+counts = {}
+for label in np.unique(y):
+    # iterate over each class
+    # count (sum) entries of 1 per feature
+    counts[label] = X[y == label].sum(axis=0)
+print("Feature counts:\n{}".format(counts))
+
+
+
+#Decision Tree
+mglearn.plots.plot_animal_tree()
+
+from sklearn.tree import DecisionTreeClassifier
+cancer = load_breast_cancer()
+X_train, X_test, y_train, y_test = train_test_split(
+        cancer.data, cancer.target, stratify=cancer.target, random_state=42)
+tree = DecisionTreeClassifier(random_state=0)
+tree.fit(X_train, y_train)
+print("Accuracy on training set: {:.3f}".format(tree.score(X_train, y_train)))
+print("Accuracy on test set: {:.3f}".format(tree.score(X_test, y_test)))
+
+tree = DecisionTreeClassifier(max_depth=4, random_state=0)
+tree.fit(X_train, y_train)
+print("Accuracy on training set: {:.3f}".format(tree.score(X_train, y_train)))
+print("Accuracy on test set: {:.3f}".format(tree.score(X_test, y_test)))
+
+from sklearn.tree import export_graphviz
+export_graphviz(tree, out_file="tree.dot", class_names=["malignant", "benign"],
+                feature_names=cancer.feature_names, impurity=False, filled=True)
+
+
+import graphviz
+with open("tree.dot") as f:
+    dot_graph = f.read()
+graphviz.Source(dot_graph)
+
+print("Feature importances:\n{}".format(tree.feature_importances_))
+
+def plot_feature_importances_cancer(model):
+    n_features = cancer.data.shape[1]
+    plt.barh(range(n_features), model.feature_importances_, align='center')
+    plt.yticks(np.arange(n_features), cancer.feature_names)
+    plt.xlabel("Feature importance")
+    plt.ylabel("Feature")
+plot_feature_importances_cancer(tree)
+
+tree = mglearn.plots.plot_tree_not_monotone()
+display(tree)
+
+import pandas as pd
+ram_prices = pd.read_csv("data/ram_price.csv")
+plt.semilogy(ram_prices.date, ram_prices.price)
+plt.xlabel("Year")
+plt.ylabel("Price in $/Mbyte")
+
+from sklearn.tree import DecisionTreeRegressor
+# use historical data to forecast prices after the year 2000
+data_train = ram_prices[ram_prices.date < 2000]
+data_test = ram_prices[ram_prices.date >= 2000]
+# predict prices based on date
+X_train = data_train.date[:, np.newaxis]
+# we use a log-transform to get a simpler relationship of data to target
+y_train = np.log(data_train.price)
+tree = DecisionTreeRegressor().fit(X_train, y_train)
+linear_reg = LinearRegression().fit(X_train, y_train)
+# predict on all data
+X_all = ram_prices.date[:, np.newaxis]
+pred_tree = tree.predict(X_all)
+pred_lr = linear_reg.predict(X_all)
+# undo log-transform
+price_tree = np.exp(pred_tree)
+price_lr = np.exp(pred_lr)
+
+plt.semilogy(data_train.date, data_train.price, label="Training data")
+plt.semilogy(data_test.date, data_test.price, label="Test data")
+plt.semilogy(ram_prices.date, price_tree, label="Tree prediction")
+plt.semilogy(ram_prices.date, price_lr, label="Linear prediction")
+plt.legend()
+
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.datasets import make_moons
+X, y = make_moons(n_samples=100, noise=0.25, random_state=3)
+X_train, X_test, y_train, y_test = train_test_split(X, y, stratify=y,
+                                                    random_state=42)
+forest = RandomForestClassifier(n_estimators=5, random_state=2)
+forest.fit(X_train, y_train)
+
+fig, axes = plt.subplots(2, 3, figsize=(20, 10))
+for i, (ax, tree) in enumerate(zip(axes.ravel(), forest.estimators_)):
+    ax.set_title("Tree {}".format(i))
+    mglearn.plots.plot_tree_partition(X_train, y_train, tree, ax=ax)
+mglearn.plots.plot_2d_separator(forest, X_train, fill=True, ax=axes[-1, -1],
+                                alpha=.4)
+axes[-1, -1].set_title("Random Forest")
+mglearn.discrete_scatter(X_train[:, 0], X_train[:, 1], y_train)
+
+X_train, X_test, y_train, y_test = train_test_split(
+        cancer.data, cancer.target, random_state=0)
+forest = RandomForestClassifier(n_estimators=100, random_state=0)
+forest.fit(X_train, y_train)
+print("Accuracy on training set: {:.3f}".format(forest.score(X_train, y_train)))
+print("Accuracy on test set: {:.3f}".format(forest.score(X_test, y_test)))
+
+plot_feature_importances_cancer(forest)
+
+from sklearn.ensemble import GradientBoostingClassifier
+X_train, X_test, y_train, y_test = train_test_split(
+        cancer.data, cancer.target, random_state=0)
+gbrt = GradientBoostingClassifier(random_state=0)
+gbrt.fit(X_train, y_train)
+print("Accuracy on training set: {:.3f}".format(gbrt.score(X_train, y_train)))
+print("Accuracy on test set: {:.3f}".format(gbrt.score(X_test, y_test)))
+
+
+gbrt = GradientBoostingClassifier(random_state=0, max_depth=1)
+gbrt.fit(X_train, y_train)
+print("Accuracy on training set: {:.3f}".format(gbrt.score(X_train, y_train)))
+print("Accuracy on test set: {:.3f}".format(gbrt.score(X_test, y_test)))
+
+gbrt = GradientBoostingClassifier(random_state=0, learning_rate=0.01)
+gbrt.fit(X_train, y_train)
+print("Accuracy on training set: {:.3f}".format(gbrt.score(X_train, y_train)))
+print("Accuracy on test set: {:.3f}".format(gbrt.score(X_test, y_test)))
+
+
+gbrt = GradientBoostingClassifier(random_state=0, max_depth=1)
+gbrt.fit(X_train, y_train)
+plot_feature_importances_cancer(gbrt)
+
+X, y = make_blobs(centers=4, random_state=8)
+y = y % 2
+mglearn.discrete_scatter(X[:, 0], X[:, 1], y)
+plt.xlabel("Feature 0")
+plt.ylabel("Feature 1")
+
+from sklearn.svm import LinearSVC
+linear_svm = LinearSVC().fit(X, y)
+mglearn.plots.plot_2d_separator(linear_svm, X)
+mglearn.discrete_scatter(X[:, 0], X[:, 1], y)
+plt.xlabel("Feature 0")
+plt.ylabel("Feature 1")
+
+# add the squared first feature
+X_new = np.hstack([X, X[:, 1:] ** 2])
+from mpl_toolkits.mplot3d import Axes3D, axes3d
+figure = plt.figure()
+# visualize in 3D
+ax = Axes3D(figure, elev=-152, azim=-26)
+# plot first all the points with y == 0, then all with y == 1
+mask = y == 0
+ax.scatter(X_new[mask, 0], X_new[mask, 1], X_new[mask, 2], c='b',
+cmap=mglearn.cm2, s=60)
+ax.scatter(X_new[~mask, 0], X_new[~mask, 1], X_new[~mask, 2], c='r', marker='^',
+cmap=mglearn.cm2, s=60)
+ax.set_xlabel("feature0")
+ax.set_ylabel("feature1")
+ax.set_zlabel("feature1 ** 2")
+
+linear_svm_3d = LinearSVC().fit(X_new, y)
+coef, intercept = linear_svm_3d.coef_.ravel(), linear_svm_3d.intercept_
+# show linear decision boundary
+figure = plt.figure()
+ax = Axes3D(figure, elev=-152, azim=-26)
+xx = np.linspace(X_new[:, 0].min() - 2, X_new[:, 0].max() + 2, 50)
+yy = np.linspace(X_new[:, 1].min() - 2, X_new[:, 1].max() + 2, 50)
+XX, YY = np.meshgrid(xx, yy)
+ZZ = (coef[0] * XX + coef[1] * YY + intercept) / -coef[2]
+ax.plot_surface(XX, YY, ZZ, rstride=8, cstride=8, alpha=0.3)
+ax.scatter(X_new[mask, 0], X_new[mask, 1], X_new[mask, 2], c='b',
+cmap=mglearn.cm2, s=60)
+ax.scatter(X_new[~mask, 0], X_new[~mask, 1], X_new[~mask, 2], c='r', marker='^',
+cmap=mglearn.cm2, s=60)
+ax.set_xlabel("feature0")
+ax.set_ylabel("feature1")
+ax.set_zlabel("feature0 ** 2")
+
+ZZ = YY ** 2
+dec = linear_svm_3d.decision_function(np.c_[XX.ravel(), YY.ravel(), ZZ.ravel()])
+plt.contourf(XX, YY, dec.reshape(XX.shape), levels=[dec.min(), 0, dec.max()],
+cmap=mglearn.cm2, alpha=0.5)
+mglearn.discrete_scatter(X[:, 0], X[:, 1], y)
+plt.xlabel("Feature 0")
+plt.ylabel("Feature 1")
+
+
+from sklearn.svm import SVC
+X, y = mglearn.tools.make_handcrafted_dataset()
+svm = SVC(kernel='rbf', C=10, gamma=0.1).fit(X, y)
+mglearn.plots.plot_2d_separator(svm, X, eps=.5)
+mglearn.discrete_scatter(X[:, 0], X[:, 1], y)
+# plot support vectors
+sv = svm.support_vectors_
+# class labels of support vectors are given by the sign of the dual coefficients
+sv_labels = svm.dual_coef_.ravel() > 0
+mglearn.discrete_scatter(sv[:, 0], sv[:, 1], sv_labels, s=15, markeredgewidth=3)
+plt.xlabel("Feature 0")
+plt.ylabel("Feature 1")
+
+fig, axes = plt.subplots(3, 3, figsize=(15, 10))
+for ax, C in zip(axes, [-1, 0, 3]):
+    for a, gamma in zip(ax, range(-1, 2)):
+        mglearn.plots.plot_svm(log_C=C, log_gamma=gamma, ax=a)
+axes[0, 0].legend(["class 0", "class 1", "sv class 0", "sv class 1"],
+                    ncol=4, loc=(.9, 1.2))
+
+
+
+
+
 
 
